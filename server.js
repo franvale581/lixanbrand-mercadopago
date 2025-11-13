@@ -45,7 +45,7 @@ app.post("/create_preference", async (req, res) => {
           unit_price: Number(item.price),
           currency_id: process.env.MP_CURRENCY || "ARS",
         })),
-        auto_return: "approved", // ✅ solo vuelve automáticamente después del pago aprobado
+       // auto_return: "approved", // ✅ solo vuelve automáticamente después del pago aprobado
         statement_descriptor: "TiendaPrueba",
       },
     });
