@@ -20,7 +20,7 @@ app.use(express.json());
 
 // 🔑 Configuración del cliente Mercado Pago
 const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
+  accessToken: MP_ACCESS_TOKEN,
 });
 
 // 🛍️ Endpoint para crear una preferencia a partir del carrito
@@ -46,7 +46,7 @@ app.post("/create_preference", async (req, res) => {
           quantity: Number(item.quantity),
           unit_price: Number(item.price),
           // 💰 Moneda configurable por variable de entorno (por defecto ARS)
-          currency_id: process.env.MP_CURRENCY || "ARS",
+          currency_id: MP_CURRENCY,
         })),
 
         // ✅ Retorno automático si el pago es aprobado
@@ -71,7 +71,7 @@ app.post("/create_preference", async (req, res) => {
 });
 
 // 🚀 Servidor corriendo
-const PORT = process.env.PORT || 3000;
+const PORT = PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
 });
