@@ -13,7 +13,8 @@ app.use(
     origin: [
       "http://127.0.0.1:3000",
       "http://localhost:3000",
-      "https://lixanbrand.com",
+      "https://www.lixanbrand.com",
+      "http://lixanbrand.com",
     ],
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
