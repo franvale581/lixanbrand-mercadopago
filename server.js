@@ -7,7 +7,15 @@ import { MercadoPagoConfig, Preference } from "mercadopago";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+// 🌎 Configuración de CORS para permitir tu front local y el dominio de producción
+app.use(
+  cors({
+    origin: ["http://127.0.0.1:3000", "http://localhost:3000", "https://lixanbrand.com"], // agregá el dominio de tu web si ya lo tenés
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+
 app.use(express.json());
 
 // 🔑 Configuración del cliente Mercado Pago
