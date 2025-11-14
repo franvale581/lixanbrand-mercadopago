@@ -101,17 +101,35 @@ app.post("/shipping/rate", async (req, res) => {
 
     const origen = { postal_code: "01000", country: "MX" };
     const destinoInfo = { postal_code: destino.postal_code, country: "MX" };
-
-    const paquetes = [{ weight: peso, height: 5, width: 20, length: 20 }];
+    
+    // Definimos peso mínimo de 1 kg
+    const pesoMinimo = Math.max(peso, 1);
+    const paquetes = [{ weight: pesoMinimo, height: 5, width: 20, length: 20 }];
 
     const response = await axios.post(
       "https://api.skydropx.com/v1/shipments/rates",
-      { address_from: origen, address_to: destinoInfo, parcels: paquetes },
-      { headers: { Authorization: `Token ${process.env.SKYDROPX_API_KEY}`, "Content-Type": "application/json" } }
+      { 
+        address_from: origen,
+        address_to: destinoInfo,
+        parcels: paquetes,
+        carrier_codes: ["estafeta"] // solo Estafeta
+      },
+      { 
+        headers: { 
+          Authorization: `Token ${process.env.SKYDROPX_API_KEY}`, 
+          "Content-Type": "application/json" 
+        } 
+      }
     );
 
+    const rates = response.data.data;
+
+    if (!rates.length) {
+      return res.status(404).json({ error: "No hay tarifas disponibles para Estafeta en esta ruta" });
+    }
+
     // Tomamos la tarifa más barata
-    const rate = response.data.data.sort((a, b) => a.attributes.total_amount - b.attributes.total_amount)[0];
+    const rate = rates.sort((a, b) => a.attributes.total_amount - b.attributes.total_amount)[0];
 
     res.json({
       carrier: rate.attributes.provider,
