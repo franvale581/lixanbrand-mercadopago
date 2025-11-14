@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import axios from "axios";
 
 dotenv.config();
 
@@ -86,6 +87,44 @@ app.post("/create_preference", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+// -----------------------------
+// ENDPOINT PARA CALCULAR ENVÍO
+// -----------------------------
+app.post("/shipping/rate", async (req, res) => {
+  try {
+    const { destino, peso } = req.body;
+    if (!destino?.postal_code || !peso) {
+      return res.status(400).json({ error: "Faltan datos de destino o peso" });
+    }
+
+    const origen = { postal_code: "01000", country: "MX" };
+    const destinoInfo = { postal_code: destino.postal_code, country: "MX" };
+
+    const paquetes = [{ weight: peso, height: 5, width: 20, length: 20 }];
+
+    const response = await axios.post(
+      "https://api.skydropx.com/v1/shipments/rates",
+      { address_from: origen, address_to: destinoInfo, parcels: paquetes },
+      { headers: { Authorization: `Token ${process.env.SKYDROPX_API_KEY}`, "Content-Type": "application/json" } }
+    );
+
+    // Tomamos la tarifa más barata
+    const rate = response.data.data.sort((a, b) => a.attributes.total_amount - b.attributes.total_amount)[0];
+
+    res.json({
+      carrier: rate.attributes.provider,
+      service: rate.attributes.service_level_name,
+      monto: rate.attributes.total_amount
+    });
+
+  } catch (err) {
+    console.error(err.response?.data || err);
+    res.status(500).json({ error: "No se pudo calcular la tarifa de envío" });
+  }
+});
+
 
 // -----------------------------
 // INICIAR SERVIDOR
