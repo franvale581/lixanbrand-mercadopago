@@ -69,12 +69,13 @@ app.post("/create_preference", async (req, res) => {
     }));
 
     // Si hay costo de envío, lo agregamos como ítem extra
-    if (shippingCost && Number(shippingCost) > 0) {
+    const shipping = Number(shippingCost || 0); // convierte a número seguro
+    if (shipping > 0) {
       items.push({
         title: "Envío",
-        description: `Costo de envío: $${Number(shippingCost).toFixed(2)}`,
+        description: `Costo de envío: $${shipping.toFixed(2)}`,
         quantity: 1,
-        unit_price: Number(shippingCost),
+        unit_price: shipping,
         currency_id: process.env.MP_CURRENCY || "MXN",
       });
     }
