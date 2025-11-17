@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { MercadoPagoConfig, Preference } from "mercadopago";
-import axios from "axios";
+
 
 dotenv.config();
 
@@ -44,10 +44,11 @@ const client = new MercadoPagoConfig({
 //   - quantity: cantidad
 //   - unit_price: precio por unidad
 // Mercado Pago calcula automáticamente (quantity × unit_price)
+// También se puede enviar el costo de envío como un ítem extra
 // -----------------------------
 app.post("/create_preference", async (req, res) => {
   try {
-    const { cartItems } = req.body;
+    const { cartItems, shippingCost } = req.body;
 
     // Validación del carrito
     if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
@@ -59,22 +60,33 @@ app.post("/create_preference", async (req, res) => {
     // --------------------------------------------
     // CREACIÓN DE LA PREFERENCIA
     // --------------------------------------------
+    const items = cartItems.map(item => ({
+      title: `${item.name} x${item.quantity}`,  // Nombre + cantidad
+      description: `Cantidad: ${item.quantity} | Precio unitario: $${Number(item.price).toFixed(2)}`, // Detalle visible en MP
+      quantity: Number(item.quantity),
+      unit_price: Number(item.price),
+      currency_id: process.env.MP_CURRENCY || "MXN",
+    }));
+
+    // Si hay costo de envío, lo agregamos como ítem extra
+    if (shippingCost && Number(shippingCost) > 0) {
+      items.push({
+        title: "Envío",
+        description: `Costo de envío: $${Number(shippingCost).toFixed(2)}`,
+        quantity: 1,
+        unit_price: Number(shippingCost),
+        currency_id: process.env.MP_CURRENCY || "MXN",
+      });
+    }
+
     const result = await preference.create({
       body: {
-        items: cartItems.map(item => ({
-          title: item.name,                   // Nombre del producto
-          quantity: Number(item.quantity),    // Cantidad real
-          unit_price: Number(item.price),     // Precio unitario
-          currency_id: process.env.MP_CURRENCY || "ARS", // Moneda (ARS por defecto)
-        })),
-
-        // Esto es lo que verá el cliente en el resumen del banco
+        items, // Productos + envío si aplica
         statement_descriptor: "LIXAN BRAND",
-
-        // Si mañana querés que vuelva automático al aprobar, activás:
-        // auto_return: "approved",
+        // auto_return: "approved", // Si querés redirección automática al aprobar
       },
     });
+
 
     // Respondemos al front con la Preference ID
     res.status(200).json({
@@ -87,62 +99,6 @@ app.post("/create_preference", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-
-// -----------------------------
-// ENDPOINT PARA CALCULAR ENVÍO
-// -----------------------------
-app.post("/shipping/rate", async (req, res) => {
-  try {
-    const { destino, peso } = req.body;
-    if (!destino?.postal_code || !peso) {
-      return res.status(400).json({ error: "Faltan datos de destino o peso" });
-    }
-
-    const origen = { postal_code: "01000", country: "MX" };
-    const destinoInfo = { postal_code: destino.postal_code, country: "MX" };
-    
-    // Definimos peso mínimo de 1 kg
-    const pesoMinimo = Math.max(peso, 1);
-    const paquetes = [{ weight: pesoMinimo, height: 5, width: 20, length: 20 }];
-
-    const response = await axios.post(
-      "https://api.skydropx.com/v1/shipments/rates",
-      { 
-        address_from: origen,
-        address_to: destinoInfo,
-        parcels: paquetes,
-        carrier_codes: ["estafeta"] // solo Estafeta
-      },
-      { 
-        headers: { 
-          Authorization: `Token ${process.env.SKYDROPX_API_KEY}`, 
-          "Content-Type": "application/json" 
-        } 
-      }
-    );
-
-    const rates = response.data.data;
-
-    if (!rates.length) {
-      return res.status(404).json({ error: "No hay tarifas disponibles para Estafeta en esta ruta" });
-    }
-
-    // Tomamos la tarifa más barata
-    const rate = rates.sort((a, b) => a.attributes.total_amount - b.attributes.total_amount)[0];
-
-    res.json({
-      carrier: rate.attributes.provider,
-      service: rate.attributes.service_level_name,
-      monto: rate.attributes.total_amount
-    });
-
-  } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).json({ error: "No se pudo calcular la tarifa de envío" });
-  }
-});
-
 
 // -----------------------------
 // INICIAR SERVIDOR
